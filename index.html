@@ -73,6 +73,15 @@ td.sp{width:90px;text-align:center}
 .err .ic{font-size:1.4rem}
 .cand{margin-top:10px}
 .mut{color:var(--mut);font-size:.85rem;font-weight:400}
+.bw{display:flex;flex-direction:column;gap:6px}
+.tl{font-size:.8rem;font-weight:700;color:var(--mut);letter-spacing:.02em}
+.tl i{font-style:normal;background:var(--fg);color:var(--bg);padding:2px 8px;border-radius:999px;margin-right:6px}
+.card.fc{border:2px dashed var(--brand)}
+.fc .top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.fc .badge{font-size:1.4rem;padding:8px 18px}
+.fc .badge .ic{font-size:1.2rem}
+.fc .cap{font-size:.9rem;color:var(--mut)}
+.fc .cap b{color:var(--fg);font-size:1.1rem}
 .pred{display:grid;gap:10px}
 .pl{display:flex;justify-content:space-between;font-size:.9rem;margin-bottom:3px}
 .pr.on .pl{font-weight:800}
@@ -152,7 +161,7 @@ function analyze(name){
    {t:"영업이익률",v:last(mar),c:"5% 이상",pass:ok(last(mar))&&last(mar)>=5}];
   const info={cagr,profit:ni.filter(x=>x>0).length,niCount:ni.length,loss:d.o.filter(x=>ok(x)&&x<0).length,
     debtFirst:debt.find(ok),debtLast:last(debt),curLast:last(cur),marLast:last(mar),
-    revFirst:rv[0],revLast:last(rv),yearFirst:d.y[0],yearLast:last(d.y),count:d.y.length};
+    revFirst:rv[0],revLast:last(rv),revYearFirst:d.y[d.r.findIndex(ok)],revYearLast:d.y[d.r.length-1-[...d.r].reverse().findIndex(ok)],yearFirst:d.y[0],yearLast:last(d.y),count:d.y.length};
   return {name,code:d.c,level,items,info,years:d.y,ofs:!!d.ofs,
     rows:[["매출",d.r],["영업이익",d.o],["순이익",d.n],["자산",d.a],["부채",d.l],["자본",d.e]]};
 }
@@ -175,7 +184,7 @@ function summarize(r){
   }
   if(i.revFirst>0&&i.cagr!=null){
     const dir=i.cagr>=3?"성장":i.cagr>=0?"정체":"감소";
-    out.push(["성장성",`매출 ${i.yearFirst}년 ${fmt(i.revFirst)}억 → ${i.yearLast}년 ${fmt(i.revLast)}억 (연평균 ${i.cagr.toFixed(1)}%, ${dir}).`]);
+    out.push(["성장성",`매출 ${i.revYearFirst}년 ${fmt(i.revFirst)}억 → ${i.revYearLast}년 ${fmt(i.revLast)}억 (연평균 ${i.cagr.toFixed(1)}%, ${dir}).`]);
   }
   if(ok(i.marLast))out.push(["수익성",`최근 영업이익률 ${pct(i.marLast)}`+(i.loss?`, ${i.count}년 중 영업적자 ${i.loss}년.`:`, 영업적자 연도 없음.`)]);
   if(i.niCount)out.push(["흑자",`순이익 흑자 ${i.profit}/${i.niCount}년.`]);
@@ -199,9 +208,11 @@ function spark(a){
 // 다음 해 예측 카드. 2024년 등급이 보류인 기업은 예측 대상이 아님
 function predCard(r){
   const m=PRED.meta||{}, p=(PRED.p||{})[r.name];
-  if(!p)return `<section class="card"><h2>${m.year||""}년 예측</h2><p class="mut">등급이 보류된 기업은 예측 대상에서 제외됩니다.</p></section>`;
-  const L=["좋음","주의","나쁨"], top=p.indexOf(Math.max(...p));
-  return `<section class="card"><h2>${m.year}년 위험 예측 <span class="mut">(랜덤포레스트)</span></h2>
+  if(!p)return `<section class="card fc"><h2>${m.year||""}년 예측</h2><p class="mut">등급이 보류된 기업은 예측 대상에서 제외됩니다.</p></section>`;
+  const L=["좋음","주의","나쁨"], top=p.indexOf(Math.max(...p)), tl=L[top];
+  return `<section class="card fc"><div class="tl" style="margin-bottom:10px"><i>예측</i>${m.year}년 위험 예측 · 랜덤포레스트 추정 (확정 아님)</div>
+   <div class="top"><div class="badge ${tl}"><span class="ic" aria-hidden="true">${ICON[tl]}</span>${tl}</div>
+   <div class="cap">${m.year}년 예상 등급<br><b>${p[top]}%</b> 확률</div></div>
    <div class="pred">${L.map((l,i)=>`<div class="pr ${l}${i===top?' on':''}"><div class="pl"><span>${l}${i===top?' · 예측':''}</span><b>${p[i]}%</b></div><div class="bar"><i style="width:${p[i]}%"></i></div></div>`).join("")}</div>
    <p class="note">2023→2024 검증 정확도 약 ${m.acc}%이며, 나쁨 등급을 놓치는 경우가 많아 나쁨 확률이 낮아도 안전하다는 뜻은 아닙니다. 참고용 통계 예측입니다.</p></section>`;
 }
@@ -218,9 +229,9 @@ function render(r){
    +`<div class="m na"><div class="t"><span>순이익 흑자 연수</span></div><div class="v">${r.info.niCount?r.info.profit+"/"+r.info.niCount+"년":"–"}</div><div class="d">참고 지표 (등급에 미반영)</div></div>`;
   $("out").innerHTML=`
   <section class="card"><div class="hero">
-    <div class="badge ${r.level}"><span class="ic" aria-hidden="true">${ICON[r.level]}</span>${r.level==="보류"?"판정 보류":r.level}</div>
+    <div class="bw"><div class="tl"><i>현재</i>${r.info.yearLast}년 실제 등급</div><div class="badge ${r.level}"><span class="ic" aria-hidden="true">${ICON[r.level]}</span>${r.level==="보류"?"판정 보류":r.level}</div></div>
     <div class="meta"><div class="name">${esc(r.name)}<span class="code">${esc(r.code)}</span></div>
-      <div class="yr">${r.info.yearLast}년 기준 · ${r.info.count}개년 분석</div>
+      <div class="yr">공시 재무 기준 · ${r.info.count}개년 분석</div>
       <div class="scale" role="img" aria-label="등급 ${r.level}">${["나쁨","주의","좋음"].map(l=>`<span class="${l} ${l===r.level?'on':''}">${l}</span>`).join("")}</div></div>
   </div></section>
   ${predCard(r)}
