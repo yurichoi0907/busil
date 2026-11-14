@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 수정 후 확인: 삼성전자 → 좋음, 새로고침 후 결과·조회 기록 유지, 없는 기업 안내, 콘솔 에러 0건, 375px 가로 스크롤 없음
 
 ## 아키텍처
-앱 전체가 `index.html` 한 파일(CSS + JS 인라인, 외부 의존성 없음)이다. `DATA`는 `/*DATA*/...{}.../*END*/` 구간에 들어 있고, **직접 수정하지 말고** `python3 -I build_data.py`로 `kospi_top200_financial_ml_2020_2024.csv`에서 재생성한다(pandas 필요). 흐름은 `run(q)` → `find()`(별칭 → 정확/종목코드 → 접두 → 포함 순 매칭, 여러 개면 후보 칩 표시) → `analyze()`(최근 연도 지표 계산 후 `gradeOf()`로 등급) → `summarize()`(규칙 기반 요약) → `localStorage`(`corp-risk-v2`)에 `{q, result, hist}` 저장 → `render()`. 초기 로드 시 저장된 `result`를 그대로 렌더하므로 `analyze()` 반환 구조를 바꾸면 `KEY` 버전을 올려야 한다.
+앱 전체가 `index.html` 한 파일(CSS + JS 인라인, 외부 의존성 없음)이다. `DATA`는 `/*DATA*/...{}.../*END*/` 구간에 들어 있고, **직접 수정하지 말고** `python3 -I build_data.py`로 `kospi_top200_financial_ml_2020_2024.csv`에서 재생성한다(pandas 필요). `PRED`(`/*PRED*/...{}.../*PEND*/` 구간)는 **직접 수정하지 말고** `python3 -I predict_next.py`(pandas·scikit-learn 필요)로 재생성하며, 노트북과 같은 설정의 랜덤포레스트로 2024 지표에서 2025 등급 확률을 뽑아 내장한다(홀드아웃 정확도 75.15%를 출력하므로 재현 확인용). 브라우저에서는 학습하지 않는다. 흐름은 `run(q)` → `find()`(별칭 → 정확/종목코드 → 접두 → 포함 순 매칭, 여러 개면 후보 칩 표시) → `analyze()`(최근 연도 지표 계산 후 `gradeOf()`로 등급) → `summarize()`(규칙 기반 요약) → `localStorage`(`corp-risk-v2`)에 `{q, result, hist}` 저장 → `render()`. 초기 로드 시 저장된 `result`를 그대로 렌더하므로 `analyze()` 반환 구조를 바꾸면 `KEY` 버전을 올려야 한다.
 
 - 등급 규칙(`gradeOf`)은 `기업예측.ipynb` STEP 3의 라벨 규칙과 `PRD.md` 5장과 항상 일치해야 한다. 변경 후에는 CSV 라벨과 196개사 전부 대조할 것(현재 0건 불일치)
 - 지표가 하나라도 결측이면 등급을 "보류"로 처리(금융업 25개사). 판정·요약은 모두 브라우저 안에서 규칙으로 생성하며 LLM API 키는 쓰지 않는다
@@ -20,7 +20,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 사용자 입력이 들어가는 `innerHTML`은 `esc()`로 이스케이프
 
 ## 저장소 구성
-- `build_data.py`: CSV → `index.html` DATA 변환
+- `kospi_top200_financial_ml_2020_2024.csv`: 원본 데이터(재현용으로 커밋됨)
+- `build_data.py`: CSV → `index.html` DATA 변환. `predict_next.py`: CSV → 랜덤포레스트 → `index.html` PRED 변환
 - `PRD.md`: 요구사항과 수용 기준. `PROMPTS.md`: 1~4단계 개발 프롬프트
 - `기업예측.ipynb`(KOSPI 200 CSV로 다음 연도 등급을 랜덤포레스트로 예측하는 팀 실험), `데이터수집_Dart.ipynb`, `Untitled.ipynb`: 웹앱과 별개이며 앱이 참조하지 않음. 깃에 올리지 않음(`.gitignore`). `데이터수집_Dart.ipynb`의 비밀값 포함 여부는 확인하지 않았음
 - GitHub 업로드는 사용자가 직접 진행하기로 함
